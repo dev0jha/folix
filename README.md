@@ -1,18 +1,20 @@
-# Foliox
+# Folix
 
-Foliox is an AI-powered portfolio generator that automatically creates beautiful developer portfolios from GitHub profiles. It fetches your GitHub data, uses AI to generate professional summaries and highlights, and presents everything in a modern, responsive portfolio website.
+Folix is an AI-powered portfolio generator that automatically creates beautiful developer portfolios from GitHub profiles. It fetches your GitHub data, uses AI to generate professional summaries and highlights, and presents everything in a modern, responsive portfolio website with a stunning glassmorphism design.
 
 ## Features
 
 - **Automatic Portfolio Generation**: Enter any GitHub username and get a fully-featured portfolio instantly
 - **AI-Powered Content**: Uses Groq AI to generate professional summaries, highlights, and SEO-optimized descriptions
 - **GitHub Integration**: Fetches profile data, repositories, contribution graphs, and project statistics via GitHub GraphQL API
+- **GitHub OAuth Authentication**: Secure login with GitHub using Better Auth
 - **Custom Share URLs**: Create memorable custom URLs for your portfolio (e.g., `yoursite.com/john-doe` instead of `yoursite.com/github-username`)
-- **Smart Caching**: Database-backed caching system for fast portfolio generation and reduced API calls
+- **Smart Caching**: PostgreSQL-backed caching system for fast portfolio generation and reduced API calls
 - **SEO Optimized**: Dynamic metadata generation for better search engine visibility
+- **Glassmorphism Design**: Modern UI with animated gradient backgrounds and glass effects
 - **Responsive Design**: Works perfectly on all devices with dark mode support
 - **LinkedIn Integration**: Optional LinkedIn profile data fetching
-- **Live Project Screenshots**: Automatically captures and displays live screenshots of project homepages using Screenshot API
+- **Live Project Screenshots**: Automatically captures and displays live screenshots of project homepages
 
 ## How It Works
 
@@ -27,9 +29,21 @@ Foliox is an AI-powered portfolio generator that automatically creates beautiful
 ### Prerequisites
 
 - Node.js 20 or higher
-- PostgreSQL database
+- PostgreSQL database (Neon, Supabase, or local)
 - Groq API key (get one at [groq.com](https://groq.com))
+- GitHub OAuth App credentials (for authentication)
 - GitHub personal access token (optional, for higher rate limits)
+
+### Tech Stack
+
+- **Framework**: Next.js 16 with App Router and Turbopack
+- **Language**: TypeScript
+- **Database**: PostgreSQL with Prisma ORM
+- **Authentication**: Better Auth with GitHub OAuth
+- **AI**: Groq AI for content generation
+- **Styling**: Tailwind CSS with custom animations
+- **UI Components**: Radix UI primitives
+- **Icons**: React Icons
 
 ### Installation
 
@@ -45,21 +59,26 @@ npm install
 ```
 
 3. Set up environment variables:
-```bash
-cp .env.example .env.local
-```
 
-Edit `.env.local` with your configuration:
+Create a `.env` file in the root directory with your configuration:
 ```env
-# Required
-GROQ_API_KEY=your_groq_api_key_here
-API_KEYS=key1,key2,key3
+# Required - Database
 DATABASE_URL=postgresql://user:password@host:port/database
 
-# Optional
-GITHUB_TOKEN=your_github_token
+# Required - AI
+GROQ_API_KEY=your_groq_api_key_here
+
+# Required - API Security
+API_KEYS=key1,key2,key3
+
+# Required - GitHub OAuth (for authentication)
 GITHUB_CLIENT_ID=your_github_oauth_client_id
 GITHUB_CLIENT_SECRET=your_github_oauth_client_secret
+
+# Optional - GitHub API (for higher rate limits)
+GITHUB_TOKEN=your_github_token
+
+# Optional - Site Configuration
 NEXT_PUBLIC_SITE_URL=http://localhost:3000
 CACHE_ENABLED=true
 DEFAULT_CACHE_TTL=3600
@@ -68,8 +87,15 @@ NODE_ENV=development
 ```
 
 4. Set up the database:
+
+Install the dotenv package (required for Prisma 7 configuration):
 ```bash
-npx prisma migrate dev
+npm install dotenv
+```
+
+Run the database migrations:
+```bash
+npx prisma migrate dev --name init
 npx prisma generate
 ```
 
@@ -223,14 +249,16 @@ npx prisma migrate dev
 
 ## Tech Stack
 
-- **Framework**: Next.js 16 with App Router
+- **Framework**: Next.js 16 with App Router and Turbopack
 - **Language**: TypeScript
-- **UI**: Tailwind CSS + Shadcn/ui components
-- **AI**: Vercel AI SDK with Groq provider (Llama 3.1 8B)
-- **Database**: PostgreSQL with Prisma ORM
+- **Database**: PostgreSQL with Prisma 7.0 ORM
+- **Authentication**: Better Auth with GitHub OAuth
+- **AI**: Groq AI (Llama 3.1 8B) via @ai-sdk/groq
+- **Styling**: Tailwind CSS with glassmorphism effects
+- **UI Components**: Radix UI primitives
+- **Icons**: React Icons
 - **API**: GitHub GraphQL API
-- **Caching**: Database-backed caching with Prisma
-- **Authentication**: API key-based middleware
+- **Caching**: PostgreSQL-backed caching with tag-based invalidation
 
 ## Caching Strategy
 
@@ -311,20 +339,20 @@ Verify that the `X-API-Key` header matches one of the keys in the `API_KEYS` env
 
 Check the username spelling and ensure the GitHub user exists and is public. If you're rate-limited, add a `GITHUB_TOKEN` to increase your rate limit.
 
-### Private Repository Access with GitHub OAuth
+### GitHub OAuth Setup
 
-To enable users to access their private repositories:
+To enable user authentication and private repository access:
 
 1. **Create a GitHub OAuth App**:
    - Go to GitHub Settings → Developer settings → OAuth Apps
    - Click "New OAuth App"
-   - Set Application name: "Foliox" (or your app name)
+   - Set Application name: "Folix" (or your app name)
    - Set Homepage URL: `http://localhost:3000` (or your production URL)
-   - Set Authorization callback URL: `http://localhost:3000/api/auth/callback/github` (or your production callback URL)
+   - Set Authorization callback URL: `http://localhost:3000/api/auth/callback/github`
    - Click "Register application"
    - Copy the **Client ID** and generate a **Client Secret**
 
-2. **Set OAuth credentials in your environment**:
+2. **Add OAuth credentials to your `.env` file**:
    ```env
    GITHUB_CLIENT_ID=your_client_id_here
    GITHUB_CLIENT_SECRET=your_client_secret_here
@@ -332,16 +360,11 @@ To enable users to access their private repositories:
    ```
 
 3. **How it works**:
-   - Users can click "Sign in with GitHub" on the landing page
-   - After authentication, their GitHub access token is securely stored
-   - When viewing their own portfolio, private repositories are automatically included
+   - Users can sign in with GitHub using Better Auth
+   - After authentication, their access token is securely stored
+   - Private repositories are automatically included in their portfolio
    - The system uses the user's token to fetch both public and private repos
-   - Other users' portfolios will only show public repositories (as expected)
-
-4. **Server-side token (optional)**:
-   - You can still set `GITHUB_TOKEN` for server-side operations
-   - This is used as a fallback when no user is authenticated
-   - Useful for public portfolio generation without user login
+   - Other users' portfolios will only show public repositories
 
 ### Database Connection Issues
 
