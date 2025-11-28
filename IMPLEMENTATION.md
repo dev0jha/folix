@@ -1,16 +1,18 @@
-# Foliox Implementation Guide
+# Folix Implementation Guide
 
-This document describes the architecture, implementation details, and technical decisions for the Foliox portfolio generator.
+This document describes the architecture, implementation details, and technical decisions for the Folix portfolio generator.
 
 ## Architecture Overview
 
-Foliox is built with:
-- **Next.js 16** with App Router for server-side rendering and API routes
+Folix is built with:
+- **Next.js 16** with App Router and Turbopack for server-side rendering and API routes
 - **TypeScript** for type safety and better developer experience
-- **Vercel AI SDK** with Groq provider for AI-powered content generation
+- **Groq AI** with Llama 3.1 8B for AI-powered content generation via @ai-sdk/groq
+- **Better Auth** for GitHub OAuth authentication
 - **GitHub GraphQL API** for efficient data fetching
-- **PostgreSQL** with Prisma ORM for database operations
+- **PostgreSQL** with Prisma 7.0 ORM for database operations
 - **Database-backed caching** for performance optimization
+- **Tailwind CSS** with glassmorphism effects for modern UI design
 - **Next.js middleware** for API key authentication and CORS
 
 ## Project Structure
@@ -308,7 +310,7 @@ All API endpoints require an `X-API-Key` header (except when `DEBUG=true`). The 
 - Automatic retry without token if authentication fails (for public repositories)
 
 ### 3. AI Generation (`lib/modules/ai/generator.ts`)
-- Uses **Vercel AI SDK** with **Groq provider**
+- Uses **@ai-sdk/groq** with **Groq provider**
 - Model: `llama-3.1-8b-instant`
 - Generates profile summaries, highlights, and skills
 - Generates SEO metadata (title, description, keywords)
@@ -335,13 +337,19 @@ All API endpoints require an `X-API-Key` header (except when `DEBUG=true`). The 
 - Format validation: 3-40 characters, alphanumeric + hyphens only
 - Portfolio routing resolves custom URLs to GitHub usernames
 
-### 6. Middleware (`middleware.ts`)
+### 6. Authentication System
+- **Better Auth**: GitHub OAuth integration for user authentication
+- Users can sign in with GitHub to access private repositories
+- Secure session management and token storage
+- Authentication routes handled via `app/api/auth/[...all]/route.ts`
+
+### 7. Middleware (`middleware.ts`)
 - **API Key Authentication**: Validates `X-API-Key` header
 - **CORS**: Whitelisted origins with fallback for development
 - **Excluded paths**: Static assets, Next.js internals, favicon
 - **Debug mode**: Bypasses auth when `DEBUG=true` for development
 
-### 7. Project Ranking Algorithm (`lib/modules/github/projects.ts`)
+### 8. Project Ranking Algorithm (`lib/modules/github/projects.ts`)
 - Scores repositories based on:
   - Stars (weight: 10)
   - Forks (weight: 5)
@@ -350,7 +358,7 @@ All API endpoints require an `X-API-Key` header (except when `DEBUG=true`). The 
 - Returns top 12 featured projects
 - Aggregates language statistics across all repositories
 
-### 8. Screenshot API Integration (`app/api/screenshot/route.ts`)
+### 9. Screenshot API Integration (`app/api/screenshot/route.ts`)
 - Wraps external Screenshot API service for capturing live project screenshots
 - Validates URLs and parameters (width, height, format, quality)
 - Returns binary image data with proper content types
@@ -361,7 +369,7 @@ All API endpoints require an `X-API-Key` header (except when `DEBUG=true`). The 
 
 ## Database Schema
 
-The application uses PostgreSQL with Prisma ORM. The schema includes:
+The application uses PostgreSQL with Prisma 7.0 ORM. The schema includes:
 
 ### Cache Model
 Stores cached API responses with expiration times:
@@ -379,15 +387,28 @@ Maps custom URL slugs to GitHub usernames:
 - `githubUsername`: Associated GitHub username
 - Indexes on `customSlug` and `githubUsername`
 
+### User Model
+Stores authenticated user data for Better Auth:
+- `id`: Unique identifier
+- `email`: User email address
+- `emailVerified`: Email verification status
+- `name`: User display name
+- `createdAt`: Account creation timestamp
+- `updatedAt`: Last update timestamp
+- `image`: User avatar URL
+
 ## Environment Variables
 
 Required:
 - `GROQ_API_KEY`: Groq API key for AI generation
 - `API_KEYS`: Comma-separated list of API keys for authentication
-- `DATABASE_URL`: PostgreSQL connection string
+- `DATABASE_URL`: PostgreSQL connection string (used by Prisma 7 via prisma.config.ts)
+- `GITHUB_CLIENT_ID`: GitHub OAuth application client ID
+- `GITHUB_CLIENT_SECRET`: GitHub OAuth application client secret
 
 Optional:
-- `GITHUB_TOKEN`: GitHub personal access token (increases rate limits)
+- `GITHUB_TOKEN`: GitHub personal access token (increases rate limits for public repositories)
+- `NEXT_PUBLIC_SITE_URL`: Public URL of the application (default: http://localhost:3000)
 - `CACHE_ENABLED`: Enable/disable caching (default: true)
 - `DEFAULT_CACHE_TTL`: Cache time-to-live in seconds (default: 3600)
 - `DEBUG`: Bypass API key authentication (default: false)
@@ -399,10 +420,19 @@ Optional:
 1. **GraphQL over REST**: Single query fetches all required GitHub data
 2. **Database-backed caching**: Persistent cache across deployments for most endpoints
 3. **Parallel AI generation**: About and SEO data generated concurrently
-5. **Automatic cache cleanup**: Expired entries removed automatically (1% chance on each write)
-6. **Indexed database queries**: Fast lookups for cache and custom URLs
-7. **Next.js App Router**: Server components for optimal performance
-8. **Cache-aware endpoints**: Check cache before making external API calls to reduce rate limiting
+4. **Automatic cache cleanup**: Expired entries removed automatically (1% chance on each write)
+5. **Indexed database queries**: Fast lookups for cache and custom URLs
+6. **Next.js App Router**: Server components for optimal performance
+7. **Cache-aware endpoints**: Check cache before making external API calls to reduce rate limiting
+8. **Turbopack**: Next.js 16 bundler for faster development builds
+
+## UI Design
+
+1. **Glassmorphism Effects**: Modern frosted glass aesthetics with backdrop blur
+2. **Animated Gradients**: Dynamic bluish gradient backgrounds with pulsing orbs
+3. **Responsive Design**: Mobile-first approach with Tailwind CSS utilities
+4. **Dark Mode**: Optimized color schemes for dark theme
+5. **Radix UI Components**: Accessible, unstyled primitives for custom designs
 
 ## Security Features
 
@@ -473,6 +503,8 @@ The application will automatically run database migrations on first deployment.
 ### Database Connection Issues
 - Verify `DATABASE_URL` is correct and database is accessible
 - Ensure migrations have been run with `npx prisma migrate dev`
+- For Prisma 7: Install dotenv package (`npm install dotenv`) if not already installed
+- Prisma 7 uses `prisma.config.ts` for configuration - ensure it's loading environment variables correctly
 
 ### Custom URL Not Working
 - Verify the custom URL was registered successfully
